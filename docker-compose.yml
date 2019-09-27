@@ -1,0 +1,72 @@
+version: '3.5'
+services:
+ #PHP
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: phpenv-image
+    container_name: lemp-app
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "11211:11211"
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /var/www
+    volumes:
+      - ./application:/var/www
+      - ./dockerconf/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - dev-network
+
+  #Nginx
+  webserver:
+    image: nginx:alpine
+    container_name: lemp-webserver
+    restart: unless-stopped
+    environment:
+      - VIRTUAL_HOST=${BASEHOST:-application.dock},${EXTRAHOSTS}
+    tty: true
+    ports:
+      - "8081:80"
+      - "4432:443"
+
+    volumes:
+      - ./application:/var/www
+      - ./dockerconf/nginx/conf.d/:/etc/nginx/conf.d/
+    depends_on:
+      - app
+    networks:
+      - dev-network
+
+  #Database
+  db:
+    image: mariadb:10.4
+    container_name: lemp-db
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASS}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - dbvolume:/var/lib/mysql/
+      - ./dockerconf/mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - dev-network
+
+#Redes
+networks:
+  dev-network:
+    driver: bridge
+#Volumenes
+volumes:
+  dbvolume:
+    driver: local 
